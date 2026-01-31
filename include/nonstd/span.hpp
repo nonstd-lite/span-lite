@@ -46,6 +46,22 @@
 # define span_CONFIG_SELECT_SPAN  ( span_HAVE_STD_SPAN ? span_SPAN_STD : span_SPAN_NONSTD )
 #endif
 
+#ifndef  span_CONFIG_CONTRACT_LEVEL_ON
+# define span_CONFIG_CONTRACT_LEVEL_ON  1
+#endif
+
+#ifndef  span_CONFIG_CONTRACT_VIOLATION_THROWS
+# define span_CONFIG_CONTRACT_VIOLATION_THROWS  0
+#endif
+
+#ifndef   span_CONFIG_CONTRACT_VIOLATION_TERMINATES
+# if      span_CONFIG_CONTRACT_VIOLATION_THROWS
+#  define span_CONFIG_CONTRACT_VIOLATION_TERMINATES  0
+# else
+#  define span_CONFIG_CONTRACT_VIOLATION_TERMINATES  1
+# endif
+#endif
+
 #ifndef  span_CONFIG_EXTENT_TYPE
 # define span_CONFIG_EXTENT_TYPE  std::size_t
 #endif
@@ -170,8 +186,8 @@
 # define        span_CONFIG_CONTRACT_VIOLATION_THROWS_V  0
 #endif
 
-#if    defined( span_CONFIG_CONTRACT_VIOLATION_THROWS     ) && span_CONFIG_CONTRACT_VIOLATION_THROWS && \
-       defined( span_CONFIG_CONTRACT_VIOLATION_TERMINATES ) && span_CONFIG_CONTRACT_VIOLATION_TERMINATES
+#if    span_CONFIG_CONTRACT_VIOLATION_THROWS && \
+       span_CONFIG_CONTRACT_VIOLATION_TERMINATES
 # error Please define none or one of span_CONFIG_CONTRACT_VIOLATION_THROWS and span_CONFIG_CONTRACT_VIOLATION_TERMINATES to 1, but not both.
 #endif
 
@@ -494,7 +510,9 @@ span_DISABLE_MSVC_WARNINGS( 26439 26440 26472 26473 26481 26490 )
 
 #if ! span_CONFIG( NO_EXCEPTIONS )
 # include <stdexcept>
-#elif ! span_CONFIG( CONTRACT_VIOLATION_THROWS_V )
+#endif
+
+#if span_CONFIG( CONTRACT_VIOLATION_TERMINATES )
 # include <exception>
 #endif
 
