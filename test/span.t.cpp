@@ -2239,6 +2239,16 @@ CASE( "[hide][issue-69: constructor from iterators is not properly constrained]"
 #endif
 }
 
+CASE( "[hide][issue-89: disallow construction of static-sized span from dynamic span with different size: precondition violation]" )
+{
+    int data3[] = { 1, 2, 3 };
+
+    nonstd::span<int   > dynamic_spn3( data3 );
+    nonstd::span<int, 2> static_spn2( dynamic_spn3 );   // <== disallow: smaller static extent
+    nonstd::span<int, 3> static_spn3( dynamic_spn3 );   // <== allow same extent, dynamic size
+    nonstd::span<int, 4> static_spn4( dynamic_spn3 );   // <== disallow: larger static extent
+}
+
 CASE( "tweak header: reads tweak header if supported " "[tweak]" )
 {
 #if span_HAVE( TWEAK_HEADER )
