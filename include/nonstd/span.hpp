@@ -1164,7 +1164,7 @@ public:
         : data_( other.data() )
         , size_( other.size() )
     {
-        span_EXPECTS( Extent == dynamic_extent || Extent != dynamic_extent && other.size() == to_size(Extent) );
+        span_EXPECTS( (Extent == dynamic_extent) || (Extent != dynamic_extent && other.size() == to_size(Extent)) );
     }
 
     // 26.7.3.3 Subviews [span.sub]
