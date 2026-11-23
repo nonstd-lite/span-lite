@@ -28,8 +28,8 @@
 #include <ctime>
 
 #define lest_MAJOR  1
-#define lest_MINOR  35
-#define lest_PATCH  1
+#define lest_MINOR  37
+#define lest_PATCH  0
 
 #define  lest_VERSION  lest_STRINGIFY(lest_MAJOR) "." lest_STRINGIFY(lest_MINOR) "." lest_STRINGIFY(lest_PATCH)
 
@@ -66,7 +66,7 @@
 #if lest_FEATURE_TIME
 # if lest_PLATFORM_IS_WINDOWS
 #  include <iomanip>
-#  include <Windows.h>
+#  include <windows.h>
 # else
 #  include <iomanip>
 #  include <sys/time.h>
@@ -88,22 +88,42 @@
 // Suppress shadow and unused-value warning for sections:
 
 #if defined (__clang__)
-# define lest_SUPPRESS_WSHADOW    _Pragma( "clang diagnostic push" ) \
-                                  _Pragma( "clang diagnostic ignored \"-Wshadow\"" )
-# define lest_SUPPRESS_WUNUSED    _Pragma( "clang diagnostic push" ) \
-                                  _Pragma( "clang diagnostic ignored \"-Wunused-value\"" )
-# define lest_RESTORE_WARNINGS    _Pragma( "clang diagnostic pop"  )
+# define lest_SUPPRESS_WSHADOW         _Pragma( "clang diagnostic push" ) \
+                                       _Pragma( "clang diagnostic ignored \"-Wshadow\"" )
+# define lest_SUPPRESS_WUNUSED         _Pragma( "clang diagnostic push" ) \
+                                       _Pragma( "clang diagnostic ignored \"-Wunused-value\"" )
+# define lest_SUPPRESS_WUNREACHABLE    _Pragma( "clang diagnostic push" )
+# define lest_SUPPRESS_WNORETVAL       _Pragma( "clang diagnostic push" )
+# define lest_RESTORE_WARNINGS         _Pragma( "clang diagnostic pop"  )
 
 #elif defined (__GNUC__)
-# define lest_SUPPRESS_WSHADOW    _Pragma( "GCC diagnostic push" ) \
-                                  _Pragma( "GCC diagnostic ignored \"-Wshadow\"" )
-# define lest_SUPPRESS_WUNUSED    _Pragma( "GCC diagnostic push" ) \
-                                  _Pragma( "GCC diagnostic ignored \"-Wunused-value\"" )
-# define lest_RESTORE_WARNINGS    _Pragma( "GCC diagnostic pop"  )
+# define lest_SUPPRESS_WSHADOW         _Pragma( "GCC diagnostic push" ) \
+                                       _Pragma( "GCC diagnostic ignored \"-Wshadow\"" )
+# define lest_SUPPRESS_WUNUSED         _Pragma( "GCC diagnostic push" ) \
+                                       _Pragma( "GCC diagnostic ignored \"-Wunused-value\"" )
+# define lest_SUPPRESS_WUNREACHABLE    _Pragma( "GCC diagnostic push" )
+# define lest_SUPPRESS_WNORETVAL       _Pragma( "GCC diagnostic push" )
+# define lest_RESTORE_WARNINGS         _Pragma( "GCC diagnostic pop"  )
+#elif defined( _MSC_VER)
+# define lest_SUPPRESS_WSHADOW         __pragma(warning(push))  __pragma(warning(disable: 4456))
+# define lest_SUPPRESS_WUNUSED         __pragma(warning(push))  __pragma(warning(disable: 4100))
+# define lest_SUPPRESS_WUNREACHABLE    __pragma(warning(push))  __pragma(warning(disable: 4702))
+# define lest_SUPPRESS_WNORETVAL       __pragma(warning(push))  __pragma(warning(disable: 4715))
+# define lest_RESTORE_WARNINGS         __pragma(warning(pop ))
 #else
-# define lest_SUPPRESS_WSHADOW    /*empty*/
-# define lest_SUPPRESS_WUNUSED    /*empty*/
-# define lest_RESTORE_WARNINGS    /*empty*/
+# define lest_SUPPRESS_WSHADOW         /*empty*/
+# define lest_SUPPRESS_WUNUSED         /*empty*/
+# define lest_SUPPRESS_WUNREACHABLE    /*empty*/
+# define lest_SUPPRESS_WNORETVAL       /*empty*/
+# define lest_RESTORE_WARNINGS         /*empty*/
+#endif
+
+#if defined(__NVCOMPILER)
+# define lest_SUPPRESS_CONTROLLING_EXPRESSION_IS_CONSTANT _Pragma("diag_suppress 236")
+# define lest_RESTORE_CONTROLLING_EXPRESSION_IS_CONSTANT _Pragma("diag_default 236")
+#else
+# define lest_SUPPRESS_CONTROLLING_EXPRESSION_IS_CONSTANT
+# define lest_RESTORE_CONTROLLING_EXPRESSION_IS_CONSTANT
 #endif
 
 // Stringify:
@@ -119,7 +139,7 @@
 # define lest_COMPILER_MSVC_VERSION 0
 #endif
 
-#define lest_COMPILER_VERSION( major, minor, patch ) ( 10 * ( 10 * major + minor ) + patch )
+#define lest_COMPILER_VERSION( major, minor, patch ) ( 10 * ( 10 * (major) + (minor) ) + (patch) )
 
 #if defined (__clang__)
 # define lest_COMPILER_CLANG_VERSION lest_COMPILER_VERSION( __clang_major__, __clang_minor__, __clang_patchlevel__ )
@@ -133,7 +153,7 @@
 # define lest_COMPILER_GNUC_VERSION 0
 #endif
 
-// C++ language version detection (C++20 is speculative):
+// C++ language version detection (C++23 is speculative):
 // Note: VC14.0/1900 (VS2015) lacks too much from C++14.
 
 #ifndef   lest_CPLUSPLUS
@@ -148,7 +168,8 @@
 #define lest_CPP11_OR_GREATER  ( lest_CPLUSPLUS >= 201103L || lest_COMPILER_MSVC_VERSION >= 120 )
 #define lest_CPP14_OR_GREATER  ( lest_CPLUSPLUS >= 201402L )
 #define lest_CPP17_OR_GREATER  ( lest_CPLUSPLUS >= 201703L )
-#define lest_CPP20_OR_GREATER  ( lest_CPLUSPLUS >= 202000L )
+#define lest_CPP20_OR_GREATER  ( lest_CPLUSPLUS >= 202002L )
+#define lest_CPP23_OR_GREATER  ( lest_CPLUSPLUS >= 202300L )
 
 #define lest_CPP11_100  (lest_CPP11_OR_GREATER || lest_COMPILER_MSVC_VERSION >= 100)
 
@@ -169,6 +190,70 @@
 // Presence of language and library features:
 
 #define lest_HAVE(FEATURE) ( lest_HAVE_##FEATURE )
+
+#if lest_COMPILER_CLANG_VERSION
+# ifdef __OBJC__
+   // There are a bunch of inconsistencies about __EXCEPTIONS and __has_feature(cxx_exceptions) in Clang 3.4/3.5/3.6.
+   // We're interested in C++ exceptions, which can be checked by __has_feature(cxx_exceptions) in 3.5+.
+   // In pre-3.5, __has_feature(cxx_exceptions) can be true if ObjC exceptions are enabled, but C++ exceptions are disabled.
+   // The recommended way to check is `__EXCEPTIONS && __has_feature(cxx_exceptions)`.
+   // See https://releases.llvm.org/3.6.0/tools/clang/docs/ReleaseNotes.html#the-exceptions-macro
+   // Note: this is only relevant in Objective-C++, thus the ifdef.
+#  if __EXCEPTIONS && __has_feature(cxx_exceptions)
+#   define lest_HAVE_EXCEPTIONS  1
+#  else
+#   define lest_HAVE_EXCEPTIONS  0
+#  endif // __EXCEPTIONS && __has_feature(cxx_exceptions)
+# else
+   // clang-cl doesn't define __EXCEPTIONS for MSVC compatibility (see https://reviews.llvm.org/D4065).
+   // Neither does Clang in MS-compatiblity mode.
+   // Let's hope no one tries to build Objective-C++ code using MS-compatibility mode or clang-cl.
+#  if __has_feature(cxx_exceptions)
+#   define lest_HAVE_EXCEPTIONS  1
+#  else
+#   define lest_HAVE_EXCEPTIONS  0
+#  endif
+# endif
+#elif lest_COMPILER_GNUC_VERSION
+# if lest_COMPILER_GNUC_VERSION >= 1 && lest_COMPILER_GNUC_VERSION < 500
+#  ifdef __EXCEPTIONS
+#   define lest_HAVE_EXCEPTIONS  1
+#  else
+#   define lest_HAVE_EXCEPTIONS  0
+#  endif // __EXCEPTIONS
+# else
+#  ifdef __cpp_exceptions
+#   define lest_HAVE_EXCEPTIONS  1
+#  else
+#   define lest_HAVE_EXCEPTIONS  0
+#  endif // __cpp_exceptions
+# endif // lest_COMPILER_GNUC_VERSION >= 1 && lest_COMPILER_GNUC_VERSION < 500
+#elif lest_COMPILER_MSVC_VERSION
+# ifdef _CPPUNWIND
+#  define lest_HAVE_EXCEPTIONS  1
+# else
+#  define lest_HAVE_EXCEPTIONS  0
+# endif // _CPPUNWIND
+#else
+// For all other compilers, assume exceptions are always enabled.
+# define  lest_HAVE_EXCEPTIONS  1
+#endif
+
+// Exception handling helpers:
+
+#if lest_HAVE( EXCEPTIONS )
+# define lest_TRY        try
+# define lest_CATCH(x)   catch (x)
+# define lest_CATCH_ALL  catch (...)
+# define lest_THROW(x)   throw x
+# define lest_RETHROW    throw
+#else // ! lest_HAVE( EXCEPTIONS )
+# define lest_TRY        if (1)
+# define lest_CATCH(x)   else if (0)
+# define lest_CATCH_ALL  else if (0)
+# define lest_THROW(x)   ( (void) sizeof( x ), std::terminate() )
+# define lest_RETHROW
+#endif // lest_HAVE( EXCEPTIONS )
 
 // Presence of C++11 language features:
 
@@ -278,7 +363,7 @@ namespace lest
 
 #define lest_CASE( specification, proposition ) \
     static void lest_FUNCTION( lest::env & ); \
-    namespace { lest::add_test lest_REGISTRAR( specification, lest::test( proposition, lest_FUNCTION ) ); } \
+    static lest::add_test lest_REGISTRAR( specification, lest::test( proposition, lest_FUNCTION ) ); \
     static void lest_FUNCTION( lest_MAYBE_UNUSED( lest::env & lest_env ) )
 
 #define lest_ADD_TEST( specification, test ) \
@@ -298,14 +383,16 @@ namespace lest
 
 #define lest_EXPECT( expr ) \
     do { \
-        try \
+        lest_TRY \
         { \
+            lest_SUPPRESS_CONTROLLING_EXPRESSION_IS_CONSTANT \
             if ( lest::result score = lest_DECOMPOSE( expr ) ) \
-                throw lest::failure( lest_LOCATION, #expr, score.decomposition ); \
+                lest_THROW( lest::failure( lest_LOCATION, #expr, score.decomposition ) ); \
             else if ( lest_env.pass() ) \
                 lest::report( lest_env.os, lest::passing( lest_LOCATION, #expr, score.decomposition, lest_env.zen() ), lest_env.context() ); \
+            lest_RESTORE_CONTROLLING_EXPRESSION_IS_CONSTANT \
         } \
-        catch(...) \
+        lest_CATCH_ALL \
         { \
             lest::inform( lest_LOCATION, #expr ); \
         } \
@@ -313,17 +400,19 @@ namespace lest
 
 #define lest_EXPECT_NOT( expr ) \
     do { \
-        try \
+        lest_TRY \
         { \
+            lest_SUPPRESS_CONTROLLING_EXPRESSION_IS_CONSTANT \
             if ( lest::result score = lest_DECOMPOSE( expr ) ) \
             { \
                 if ( lest_env.pass() ) \
                     lest::report( lest_env.os, lest::passing( lest_LOCATION, lest::not_expr( #expr ), lest::not_expr( score.decomposition ), lest_env.zen() ), lest_env.context() ); \
             } \
             else \
-                throw lest::failure( lest_LOCATION, lest::not_expr( #expr ), lest::not_expr( score.decomposition ) ); \
+                lest_THROW( lest::failure( lest_LOCATION, lest::not_expr( #expr ), lest::not_expr( score.decomposition ) ) ); \
+            lest_RESTORE_CONTROLLING_EXPRESSION_IS_CONSTANT \
         } \
-        catch(...) \
+        lest_CATCH_ALL \
         { \
             lest::inform( lest_LOCATION, lest::not_expr( #expr ) ); \
         } \
@@ -332,13 +421,13 @@ namespace lest
 #define lest_EXPECT_NO_THROW( expr ) \
     do \
     { \
-        try \
+        lest_TRY \
         { \
             lest_SUPPRESS_WUNUSED \
             expr; \
             lest_RESTORE_WARNINGS \
         } \
-        catch (...) { lest::inform( lest_LOCATION, #expr ); } \
+        lest_CATCH_ALL { lest::inform( lest_LOCATION, #expr ); } \
         if ( lest_env.pass() ) \
             lest::report( lest_env.os, lest::got_none( lest_LOCATION, #expr ), lest_env.context() ); \
     } while ( lest::is_false() )
@@ -346,39 +435,39 @@ namespace lest
 #define lest_EXPECT_THROWS( expr ) \
     do \
     { \
-        try \
+        lest_TRY \
         { \
             lest_SUPPRESS_WUNUSED \
             expr; \
             lest_RESTORE_WARNINGS \
         } \
-        catch (...) \
+        lest_CATCH_ALL \
         { \
             if ( lest_env.pass() ) \
                 lest::report( lest_env.os, lest::got( lest_LOCATION, #expr ), lest_env.context() ); \
             break; \
         } \
-        throw lest::expected( lest_LOCATION, #expr ); \
+        lest_THROW( lest::expected( lest_LOCATION, #expr ) ); \
     } \
     while ( lest::is_false() )
 
 #define lest_EXPECT_THROWS_AS( expr, excpt ) \
     do \
     { \
-        try \
+        lest_TRY \
         { \
             lest_SUPPRESS_WUNUSED \
             expr; \
             lest_RESTORE_WARNINGS \
         }  \
-        catch ( excpt & ) \
+        lest_CATCH( excpt & ) \
         { \
             if ( lest_env.pass() ) \
                 lest::report( lest_env.os, lest::got( lest_LOCATION, #expr, lest::of_type( #excpt ) ), lest_env.context() ); \
             break; \
         } \
-        catch (...) {} \
-        throw lest::expected( lest_LOCATION, #expr, lest::of_type( #excpt ) ); \
+        lest_CATCH_ALL {} \
+        lest_THROW( lest::expected( lest_LOCATION, #expr, lest::of_type( #excpt ) ) ); \
     } \
     while ( lest::is_false() )
 
@@ -593,27 +682,33 @@ inline text of_type( text type )
 
 inline void inform( location where, text expr )
 {
-    try
+    lest_TRY
     {
-        throw;
+        lest_RETHROW;
     }
-    catch( failure const & )
+    lest_CATCH( failure const & )
     {
-        throw;
+        lest_RETHROW;
     }
-    catch( std::exception const & e )
+    lest_CATCH( std::exception const & e )
     {
-        throw unexpected( where, expr, with_message( e.what() ) ); \
+#if lest_HAVE( EXCEPTIONS )
+        lest_THROW( unexpected( where, expr, with_message( e.what() ) ) );
+#endif // lest_HAVE( EXCEPTIONS )
     }
-    catch(...)
+    lest_CATCH_ALL
     {
-        throw unexpected( where, expr, "of unknown type" ); \
+        lest_THROW( unexpected( where, expr, "of unknown type" ) );
     }
 }
 
 // Expression decomposition:
 
-inline bool unprintable( char c ) { return 0 <= c && c < ' '; }
+inline bool unprintable( char c )
+{
+    // The cast helps suppress warnings ("-Wtype-limits" on GCC) on architectures where `char` is unsigned.
+    return 0 <= static_cast<signed char>(c) && c < ' ';
+}
 
 inline std::string to_hex_string(char c)
 {
@@ -689,6 +784,16 @@ struct string_maker
     static std::string to_string( T const & value )
     {
         std::ostringstream os; os << std::boolalpha << value;
+        return os.str();
+    }
+};
+
+template< >
+struct string_maker< wchar_t >
+{
+    static std::string to_string( wchar_t value )
+    {
+        std::ostringstream os; os << std::boolalpha << static_cast<char>( value );
         return os.str();
     }
 };
@@ -1175,11 +1280,11 @@ struct times : action
     {
         timer t;
 
-        try
+        lest_TRY
         {
             testing.behaviour( output( testing.name ) );
         }
-        catch( message const & )
+        lest_CATCH( message const & )
         {
             ++failures;
         }
@@ -1213,13 +1318,16 @@ struct confirm : action
 
     confirm & operator()( test testing )
     {
-        try
+        lest_TRY
         {
             ++selected; testing.behaviour( output( testing.name ) );
         }
-        catch( message const & e )
+        lest_CATCH( message const & e )
         {
-            ++failures; report( os, e, output.context() );
+            ++failures;
+#if lest_HAVE( EXCEPTIONS )
+            report( os, e, output.context() );
+#endif // lest_HAVE( EXCEPTIONS )
         }
         return *this;
     }
@@ -1295,6 +1403,7 @@ inline bool is_number( text arg )
         && text::npos == arg.find_first_not_of( digits );
 }
 
+lest_SUPPRESS_WNORETVAL
 inline seed_t seed( text opt, text arg )
 {
     // std::time_t: implementation dependent
@@ -1305,7 +1414,7 @@ inline seed_t seed( text opt, text arg )
     if ( is_number( arg ) )
         return static_cast<seed_t>( lest::stoi( arg ) );
 
-    throw std::runtime_error( "expecting 'time' or positive number with option '" + opt + "', got '" + arg + "' (try option --help)" );
+    lest_THROW( std::runtime_error( "expecting 'time' or positive number with option '" + opt + "', got '" + arg + "' (try option --help)" ) );
 }
 
 inline int repeat( text opt, text arg )
@@ -1315,8 +1424,9 @@ inline int repeat( text opt, text arg )
     if ( indefinite( num ) || num >= 0 )
         return num;
 
-    throw std::runtime_error( "expecting '-1' or positive number with option '" + opt + "', got '" + arg + "' (try option --help)" );
+    lest_THROW( std::runtime_error( "expecting '-1' or positive number with option '" + opt + "', got '" + arg + "' (try option --help)" ) );
 }
+lest_RESTORE_WARNINGS
 
 inline std::pair<text, text>
 split_option( text arg )
@@ -1359,7 +1469,7 @@ split_arguments( texts args )
             else if ( opt == "--order" && "random"       == val ) { option.random  =  true; continue; }
             else if ( opt == "--random-seed" ) { option.seed   = seed  ( "--random-seed", val ); continue; }
             else if ( opt == "--repeat"      ) { option.repeat = repeat( "--repeat"     , val ); continue; }
-            else throw std::runtime_error( "unrecognised option '" + opt + "' (try option --help)" );
+            else lest_THROW( std::runtime_error( "unrecognised option '" + opt + "' (try option --help)" ) );
         }
         in.push_back( arg );
     }
@@ -1433,7 +1543,7 @@ inline int version( std::ostream & os )
 
 inline int run( tests specification, texts arguments, std::ostream & os = std::cout )
 {
-    try
+    lest_TRY
     {
         options option; texts in;
         tie( option, in ) = split_arguments( arguments );
@@ -1450,9 +1560,11 @@ inline int run( tests specification, texts arguments, std::ostream & os = std::c
 
         { confirm confirm_( os, option ); return for_test( specification, in, confirm_, option.repeat ); }
     }
-    catch ( std::exception const & e )
+    lest_CATCH( std::exception const & e )
     {
+#if lest_HAVE( EXCEPTIONS )
         os << "Error: " << e.what() << "\n";
+#endif // lest_HAVE( EXCEPTIONS )
         return 1;
     }
 }
